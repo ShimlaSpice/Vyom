@@ -1,0 +1,35 @@
+{
+  "application": {
+    "name": "VYOM Trader AI",
+    "version": "0.1.0",
+    "environment": "development"
+  },
+  "paths": {
+    "data_directory": "data",
+    "log_directory": "logs",
+    "asset_directory": "assets"
+  },
+  "logging": {
+    "level": "INFO",
+    "rotation": "10 MB",
+    "retention": "14 days",
+    "file_name": "vyom_trader_ai.log",
+    "backtrace": false,
+    "diagnose": false
+  },
+  "database": {
+    "path": "data/vyom_trader_ai.db",
+    "echo": false,
+    "pool_pre_ping": true
+  },
+  "scheduler": {
+    "timezone": "Asia/Kolkata",
+    "coalesce": true,
+    "max_instances": 1,
+    "misfire_grace_time": 60
+  },
+  "cache": {
+    "default_ttl_seconds": 300,
+    "max_items": 5000
+  }
+}

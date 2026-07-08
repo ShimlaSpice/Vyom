@@ -1,0 +1,22 @@
+# Default runtime configuration for VYOM Trader AI.
+# Production deployments can override this file with a separate configuration
+# path while keeping the same schema.
+
+[application]
+name = "VYOM Trader AI"
+version = "0.1.0"
+environment = "development"
+log_level = "INFO"
+
+[paths]
+data_directory = "data"
+log_directory = "logs"
+asset_directory = "assets"
+
+[database]
+path = "data/vyom_trader_ai.db"
+echo = false
+
+[scheduler]
+timezone = "Asia/Kolkata"
+max_workers = 4
