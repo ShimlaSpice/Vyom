@@ -1,5 +1,13 @@
 :root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    Inter,
+    "IBM Plex Sans",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   color: #e8eefc;
   background:
     radial-gradient(circle at top left, rgba(86, 117, 255, 0.28), transparent 34%),
@@ -71,6 +79,143 @@ label {
   gap: 0.4rem;
   color: rgba(232, 238, 252, 0.78);
   font-size: 0.92rem;
+}
+
+.app-frame {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.loading-screen {
+  max-width: 540px;
+  width: 100%;
+}
+
+.auth-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(280px, 1.1fr) minmax(360px, 0.9fr);
+  gap: 1.2rem;
+  padding: 1.2rem;
+}
+
+.auth-hero,
+.auth-card {
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(10, 18, 34, 0.7), rgba(10, 18, 34, 0.5)),
+    rgba(10, 18, 34, 0.72);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(16px);
+}
+
+.auth-hero {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 2rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.auth-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto -10% -22% auto;
+  width: 340px;
+  height: 340px;
+  background: radial-gradient(circle, rgba(145, 240, 219, 0.18), transparent 70%);
+  pointer-events: none;
+}
+
+.auth-hero h2 {
+  max-width: 12ch;
+  font-size: clamp(2.4rem, 5vw, 4.2rem);
+  line-height: 0.98;
+  margin: 0.35rem 0 1rem;
+}
+
+.auth-hero p {
+  max-width: 58ch;
+  color: rgba(232, 238, 252, 0.72);
+}
+
+.auth-features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.auth-features div {
+  padding: 1rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.auth-features strong {
+  display: block;
+  margin-bottom: 0.3rem;
+}
+
+.auth-features span {
+  color: rgba(232, 238, 252, 0.66);
+  font-size: 0.88rem;
+}
+
+.auth-card {
+  padding: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 1.4rem;
+  padding: 0.35rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tab {
+  background: transparent;
+  color: rgba(232, 238, 252, 0.78);
+  border: 1px solid transparent;
+  padding: 0.8rem 1rem;
+}
+
+.tab.active {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.auth-copy {
+  margin-bottom: 1.2rem;
+}
+
+.auth-form {
+  margin-bottom: 0.8rem;
+}
+
+.auth-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  color: rgba(232, 238, 252, 0.72);
+}
+
+.secondary-link {
+  white-space: nowrap;
 }
 
 .shell {
@@ -192,6 +337,16 @@ h2 {
   margin-top: 0.2rem;
 }
 
+.account-email {
+  margin-bottom: 1rem;
+  color: rgba(232, 238, 252, 0.78);
+  word-break: break-word;
+}
+
+.full-width {
+  width: 100%;
+}
+
 .stack {
   display: grid;
   gap: 0.8rem;
@@ -200,6 +355,10 @@ h2 {
 .message {
   margin: 0.8rem 0 0;
   color: #91f0db;
+}
+
+.error-message {
+  color: #ffcfcf;
 }
 
 .grid {
@@ -298,7 +457,8 @@ th {
 
 @media (max-width: 1100px) {
   .shell,
-  .grid {
+  .grid,
+  .auth-shell {
     grid-template-columns: 1fr;
   }
 
@@ -307,14 +467,22 @@ th {
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
 
-  .hero {
+  .hero,
+  .auth-footer {
     flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .auth-features {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 640px) {
   .content,
-  .sidebar {
+  .sidebar,
+  .auth-card,
+  .auth-hero {
     padding: 1rem;
   }
 

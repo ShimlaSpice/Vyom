@@ -1,5 +1,16 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 
+type AuthMode = 'signin' | 'signup';
+
+type SessionUser = {
+  name: string;
+  email: string;
+};
+
+type StoredUser = SessionUser & {
+  password: string;
+};
+
 type Summary = {
   symbols: number;
   snapshots: number;
@@ -67,6 +78,8 @@ type Dashboard = {
 };
 
 const API_BASE_URL = 'http://127.0.0.1:8000';
+const AUTH_USERS_KEY = 'vyom_auth_users';
+const AUTH_SESSION_KEY = 'vyom_auth_session';
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-IN', {
@@ -87,19 +100,69 @@ function formatSigned(value: number): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}`;
 }
 
+function loadStoredUsers(): StoredUser[] {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+  const raw = window.localStorage.getItem(AUTH_USERS_KEY);
+  if (!raw) {
+    return [];
+  }
+  try {
+    return JSON.parse(raw) as StoredUser[];
+  } catch {
+    return [];
+  }
+}
+
+function saveStoredUsers(users: StoredUser[]): void {
+  window.localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(users));
+}
+
+function loadSessionUser(): SessionUser | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const raw = window.localStorage.getItem(AUTH_SESSION_KEY);
+  if (!raw) {
+    return null;
+  }
+  try {
+    return JSON.parse(raw) as SessionUser;
+  } catch {
+    return null;
+  }
+}
+
+function saveSessionUser(user: SessionUser): void {
+  window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(user));
+}
+
+function clearSessionUser(): void {
+  window.localStorage.removeItem(AUTH_SESSION_KEY);
+}
+
 export default function App() {
-  const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const [authMode, setAuthMode] = useState<AuthMode>('signin');
+  const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [decisionSymbol, setDecisionSymbol] = useState('RELIANCE');
   const [decisionHorizon, setDecisionHorizon] = useState('intraday');
   const [decisionMessage, setDecisionMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    void loadDashboard();
-  }, []);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const symbolOptions = useMemo(() => dashboard?.symbols ?? [], [dashboard]);
+
+  useEffect(() => {
+    const storedSession = loadSessionUser();
+    if (storedSession) {
+      setSessionUser(storedSession);
+      void loadDashboard();
+    }
+    setLoading(false);
+  }, []);
 
   async function loadDashboard() {
     try {
@@ -116,9 +179,66 @@ export default function App() {
       }
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : 'Unable to load dashboard');
-    } finally {
-      setLoading(false);
     }
+  }
+
+  async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAuthError(null);
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const email = String(formData.get('email') ?? '').trim().toLowerCase();
+    const password = String(formData.get('password') ?? '').trim();
+
+    if (!email || !password) {
+      setAuthError('Please enter both email and password.');
+      return;
+    }
+
+    if (authMode === 'signup') {
+      const name = String(formData.get('name') ?? '').trim();
+      const confirmPassword = String(formData.get('confirm_password') ?? '').trim();
+      if (!name) {
+        setAuthError('Please enter your full name.');
+        return;
+      }
+      if (password.length < 6) {
+        setAuthError('Password must be at least 6 characters.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setAuthError('Passwords do not match.');
+        return;
+      }
+      const users = loadStoredUsers();
+      if (users.some((user) => user.email === email)) {
+        setAuthError('An account already exists for this email.');
+        return;
+      }
+      const newUser: StoredUser = { name, email, password };
+      users.push(newUser);
+      saveStoredUsers(users);
+      const session = { name, email };
+      saveSessionUser(session);
+      setSessionUser(session);
+      form.reset();
+      await loadDashboard();
+      return;
+    }
+
+    const users = loadStoredUsers();
+    const existing = users.find((user) => user.email === email && user.password === password);
+    if (!existing) {
+      setAuthError('Invalid email or password.');
+      return;
+    }
+
+    const session = { name: existing.name, email: existing.email };
+    saveSessionUser(session);
+    setSessionUser(session);
+    form.reset();
+    await loadDashboard();
   }
 
   async function handleRunDecision(event: FormEvent<HTMLFormElement>) {
@@ -170,16 +290,159 @@ export default function App() {
     await loadDashboard();
   }
 
+  function handleLogout() {
+    clearSessionUser();
+    setSessionUser(null);
+    setDashboard(null);
+    setDecisionMessage(null);
+    setError(null);
+    setAuthMode('signin');
+  }
+
+  if (loading) {
+    return (
+      <div className="app-frame">
+        <section className="loading-screen panel">
+          <p className="eyebrow">VYOM Trader AI</p>
+          <h1>Preparing your workspace</h1>
+          <p>Loading the authentication flow and dashboard shell...</p>
+        </section>
+      </div>
+    );
+  }
+
+  if (!sessionUser) {
+    return (
+      <div className="auth-shell">
+        <section className="auth-hero">
+          <div className="brand">
+            <div className="brand-mark">V</div>
+            <div>
+              <p className="eyebrow">Local Web App</p>
+              <h1>VYOM Trader AI</h1>
+            </div>
+          </div>
+
+          <h2>Sign in to the trading workspace</h2>
+          <p>
+            A clean local auth screen for your dashboard, with a polished signup and sign-in flow
+            that keeps the experience focused and modern.
+          </p>
+
+          <div className="auth-features">
+            <div>
+              <strong>FastAPI</strong>
+              <span>Market, news, and decision APIs</span>
+            </div>
+            <div>
+              <strong>SQLite</strong>
+              <span>Lightweight local persistence</span>
+            </div>
+            <div>
+              <strong>Alembic</strong>
+              <span>Migration-ready schema</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="auth-card panel">
+          <div className="auth-tabs">
+            <button
+              type="button"
+              className={authMode === 'signin' ? 'tab active' : 'tab'}
+              onClick={() => setAuthMode('signin')}
+            >
+              Sign in
+            </button>
+            <button
+              type="button"
+              className={authMode === 'signup' ? 'tab active' : 'tab'}
+              onClick={() => setAuthMode('signup')}
+            >
+              Sign up
+            </button>
+          </div>
+
+          <div className="auth-copy">
+            <p className="section-label">{authMode === 'signin' ? 'Welcome back' : 'Create account'}</p>
+            <h3>{authMode === 'signin' ? 'Sign in to continue' : 'Create your local account'}</h3>
+            <p>
+              {authMode === 'signin'
+                ? 'Use your saved local credentials to open the dashboard.'
+                : 'Set up a lightweight local account to access the dashboard.'}
+            </p>
+          </div>
+
+          <form className="stack auth-form" onSubmit={handleAuthSubmit}>
+            {authMode === 'signup' ? (
+              <label>
+                Full name
+                <input name="name" placeholder="Aarav Mehta" autoComplete="name" />
+              </label>
+            ) : null}
+            <label>
+              Email
+              <input name="email" type="email" placeholder="you@example.com" autoComplete="email" />
+            </label>
+            <label>
+              Password
+              <input
+                name="password"
+                type="password"
+                placeholder="••••••••"
+                autoComplete={authMode === 'signin' ? 'current-password' : 'new-password'}
+              />
+            </label>
+            {authMode === 'signup' ? (
+              <label>
+                Confirm password
+                <input name="confirm_password" type="password" placeholder="••••••••" autoComplete="new-password" />
+              </label>
+            ) : null}
+            <button type="submit">
+              {authMode === 'signin' ? 'Sign in' : 'Create account'}
+            </button>
+          </form>
+
+          {authError ? <p className="message error-message">{authError}</p> : null}
+
+          <div className="auth-footer">
+            <p>
+              {authMode === 'signin'
+                ? "No account yet? Switch to sign up to create one."
+                : 'Already have an account? Switch to sign in.'}
+            </p>
+            <button
+              type="button"
+              className="ghost secondary-link"
+              onClick={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')}
+            >
+              {authMode === 'signin' ? 'Go to sign up' : 'Go to sign in'}
+            </button>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">V</div>
           <div>
-            <p className="eyebrow">Local Web App</p>
-            <h1>VYOM Trader AI</h1>
+            <p className="eyebrow">Signed in as</p>
+            <h1>{sessionUser.name}</h1>
           </div>
         </div>
+
+        <section className="panel panel-compact">
+          <p className="section-label">Account</p>
+          <p className="account-email">{sessionUser.email}</p>
+          <button type="button" className="secondary full-width" onClick={handleLogout}>
+            Sign out
+          </button>
+        </section>
 
         <section className="panel panel-compact">
           <p className="section-label">Quick Stats</p>
@@ -254,7 +517,6 @@ export default function App() {
           </button>
         </header>
 
-        {loading ? <section className="panel">Loading dashboard...</section> : null}
         {error ? <section className="panel error">Backend unavailable: {error}</section> : null}
 
         <section className="grid">
