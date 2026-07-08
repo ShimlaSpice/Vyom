@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.orm import DeclarativeBase
 
@@ -52,6 +52,41 @@ class MarketSymbol(TimestampMixin, Base):
         back_populates="symbol_ref",
         cascade="all, delete-orphan",
     )
+
+
+class UserAccount(TimestampMixin, Base):
+    """Registered application user for the local auth flow."""
+
+    __tablename__ = "user_accounts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    sessions: Mapped[list["AuthSession"]] = relationship(
+        back_populates="user_ref",
+        cascade="all, delete-orphan",
+    )
+
+
+class AuthSession(TimestampMixin, Base):
+    """Bearer-token session issued on login/signup."""
+
+    __tablename__ = "auth_sessions"
+    __table_args__ = (
+        UniqueConstraint("token_hash", name="uq_auth_sessions_token_hash"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user_accounts.id"), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+
+    user_ref: Mapped["UserAccount"] = relationship(back_populates="sessions")
 
 
 class MarketSnapshot(TimestampMixin, Base):
