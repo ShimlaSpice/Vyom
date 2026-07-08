@@ -14,7 +14,7 @@ from market.service import MarketService
 from news.service import NewsService
 
 
-@dataclass(slots=True)
+@dataclass
 class ApplicationContainer:
     """Group infrastructure and domain services in one place."""
 

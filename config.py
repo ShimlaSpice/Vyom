@@ -14,7 +14,7 @@ class ConfigurationError(RuntimeError):
     """Raised when the application configuration cannot be loaded."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(frozen=True)
 class ApplicationConfig:
     """Application metadata and runtime mode settings."""
 
@@ -23,7 +23,7 @@ class ApplicationConfig:
     environment: str
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(frozen=True)
 class PathConfig:
     """Filesystem locations used by the application."""
 
@@ -33,7 +33,7 @@ class PathConfig:
     asset_directory: Path
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(frozen=True)
 class LoggingConfig:
     """Logging runtime configuration."""
 
@@ -45,7 +45,7 @@ class LoggingConfig:
     diagnose: bool
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(frozen=True)
 class DatabaseConfig:
     """Database runtime configuration."""
 
@@ -54,7 +54,7 @@ class DatabaseConfig:
     pool_pre_ping: bool
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(frozen=True)
 class SchedulerJobDefaults:
     """Default scheduler behavior."""
 
@@ -63,7 +63,7 @@ class SchedulerJobDefaults:
     misfire_grace_time: int
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(frozen=True)
 class SchedulerConfig:
     """Scheduler runtime configuration."""
 
@@ -71,7 +71,7 @@ class SchedulerConfig:
     job_defaults: SchedulerJobDefaults
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(frozen=True)
 class CacheConfig:
     """Application cache configuration."""
 
@@ -79,7 +79,7 @@ class CacheConfig:
     max_items: int
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(frozen=True)
 class Settings:
     """Fully validated application settings."""
 
@@ -169,7 +169,7 @@ class ConfigManager:
 
         return Settings(
             application=ApplicationConfig(
-                name=str(application.get("name", "VYOM Trader AI")),
+                name=str(application.get("name", "VYOM Trader AI Web")),
                 version=str(application.get("version", "0.1.0")),
                 environment=str(application.get("environment", "development")),
             ),

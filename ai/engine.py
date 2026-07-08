@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(frozen=True)
 class DecisionContext:
     """Describe the input for a future AI inference run."""
 

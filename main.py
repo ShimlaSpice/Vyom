@@ -1,10 +1,10 @@
-"""Backward-compatible launcher for the desktop application."""
+"""Launcher for the local web application."""
 
 from __future__ import annotations
 
 import sys
 
-from app import main
+from backend.app.main import main
 
 
 if __name__ == "__main__":

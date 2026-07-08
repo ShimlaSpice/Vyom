@@ -30,7 +30,7 @@ class DatabaseManager:
             raise RuntimeError("DatabaseManager has not been initialized")
         return self._engine
 
-    def initialize(self) -> None:
+    def initialize(self, *, create_schema: bool = True) -> None:
         """Create the SQLite engine and session factory."""
 
         if self._engine is not None:
@@ -50,7 +50,8 @@ class DatabaseManager:
             autocommit=False,
             expire_on_commit=False,
         )
-        Base.metadata.create_all(self._engine)
+        if create_schema:
+            Base.metadata.create_all(self._engine)
         logger.debug("Database initialized at {}", self._settings.database.path)
 
     @contextmanager

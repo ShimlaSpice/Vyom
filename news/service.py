@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(frozen=True)
 class NewsQuery:
     """Describe a future news lookup request."""
 

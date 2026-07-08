@@ -13,7 +13,7 @@ from config import Settings
 T = TypeVar("T")
 
 
-@dataclass(slots=True)
+@dataclass
 class CacheEntry(Generic[T]):
     """Store a cached value with an absolute expiry timestamp."""
 

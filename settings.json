@@ -1,6 +1,6 @@
 {
   "application": {
-    "name": "VYOM Trader AI",
+    "name": "VYOM Trader AI Web",
     "version": "0.1.0",
     "environment": "development"
   },
