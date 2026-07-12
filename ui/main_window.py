@@ -9,10 +9,11 @@ try:
 except Exception:  # pragma: no cover - optional dependency fallback
     pg = None
 
-from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, QTimer
+from PySide6.QtCore import QEvent, QPointF, QRectF, QEasingCurve, QPropertyAnimation, QSize, Qt, QSettings, QTimer
 from PySide6.QtGui import (
     QColor,
     QFont,
+    QIcon,
     QLinearGradient,
     QPainter,
     QPainterPath,
@@ -28,6 +29,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QPushButton,
     QSizePolicy,
+    QStyle,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -82,7 +84,7 @@ class GlowLogo(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setFixedSize(66, 66)
+        self.setFixedSize(56, 56)
 
     def paintEvent(self, _event) -> None:  # noqa: N802 - Qt naming
         painter = QPainter(self)
@@ -90,7 +92,7 @@ class GlowLogo(QWidget):
         rect = self.rect()
         center = rect.center()
 
-        outer = QRadialGradient(center, 33)
+        outer = QRadialGradient(center, 28)
         outer.setColorAt(0.0, QColor("#1a4cff"))
         outer.setColorAt(0.35, QColor("#1d2358"))
         outer.setColorAt(0.7, QColor("#080c19"))
@@ -99,7 +101,7 @@ class GlowLogo(QWidget):
         painter.setPen(QPen(QColor("#2f6bff"), 2))
         painter.drawEllipse(rect.adjusted(4, 4, -4, -4))
 
-        glow = QRadialGradient(center, 24)
+        glow = QRadialGradient(center, 20)
         glow.setColorAt(0.0, QColor(120, 102, 255, 230))
         glow.setColorAt(0.55, QColor(35, 72, 255, 110))
         glow.setColorAt(1.0, QColor(20, 40, 100, 0))
@@ -295,62 +297,59 @@ class PaletteButton(QPushButton):
         self.setMinimumSize(48, 28)
 
 
-class SidebarButton(QPushButton):
-    """Navigation item used in the left rail."""
+class SidebarButton(QToolButton):
+    """Navigation entry used in the left rail."""
 
     def __init__(self, text: str, glyph: str, active: bool = False, badge: str | None = None) -> None:
         super().__init__()
-        self._text_label: QLabel | None = None
-        self._badge_label: QLabel | None = None
-        self._glyph_label: QLabel | None = None
-        self._layout: QHBoxLayout | None = None
+        self._full_text = text
         self.setCheckable(True)
         self.setChecked(active)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setMinimumHeight(39)
+        self.setFixedHeight(40)
         self.setProperty("sidebarButton", True)
-
-        layout = QHBoxLayout(self)
-        self._layout = layout
-        layout.setContentsMargins(12, 0, 12, 0)
-        layout.setSpacing(10)
-
-        icon = QLabel(glyph, self)
-        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon.setFixedSize(22, 22)
-        icon.setObjectName("SideGlyph")
-        layout.addWidget(icon)
-        self._glyph_label = icon
-
-        label = QLabel(text, self)
-        label.setObjectName("SideLabel")
-        layout.addWidget(label)
-        self._text_label = label
-        layout.addStretch(1)
+        self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.setText(self._full_text)
+        self.setIcon(self._build_icon(glyph))
+        self.setIconSize(QSize(22, 22))
+        self.setToolTip(text)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
         if badge is not None:
-            badge_label = QLabel(badge, self)
-            badge_label.setObjectName("NavBadge")
-            badge_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            badge_label.setFixedSize(24, 18)
-            badge_label.setStyleSheet(
-                "background: #ff4d4d; color: white; border-radius: 9px; font-size: 10px; font-weight: 700;"
-            )
-            layout.addWidget(badge_label)
-            self._badge_label = badge_label
+            self.setText(f"{self._full_text}  {badge}")
 
     def set_collapsed(self, collapsed: bool) -> None:
         """Toggle between the full-width and icon-only rail states."""
 
-        if self._text_label is not None:
-            self._text_label.setVisible(not collapsed)
-        if self._badge_label is not None:
-            self._badge_label.setVisible(not collapsed)
-        if self._glyph_label is not None:
-            self._glyph_label.setFixedSize(24 if collapsed else 22, 24 if collapsed else 22)
-        if self._layout is not None:
-            self._layout.setContentsMargins(10 if collapsed else 12, 0, 10 if collapsed else 12, 0)
-            self._layout.setSpacing(0 if collapsed else 10)
+        self.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonIconOnly if collapsed else Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        )
+        self.setFixedWidth(60 if collapsed else 240)
+        self.setContentsMargins(0, 0, 0, 0)
+        self.setFixedHeight(40)
+        self.setText("" if collapsed else self._full_text)
+
+    def _build_icon(self, glyph: str) -> QIcon:
+        """Return a Qt-style icon for each nav entry."""
+
+        style = self.style()
+        mapping = {
+            "dashboard": style.standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon),
+            "market": style.standardIcon(QStyle.StandardPixmap.SP_DesktopIcon),
+            "scanner": style.standardIcon(QStyle.StandardPixmap.SP_FileDialogContentsView),
+            "opportunities": style.standardIcon(QStyle.StandardPixmap.SP_ArrowUp),
+            "charts": style.standardIcon(QStyle.StandardPixmap.SP_ComputerIcon),
+            "watchlist": style.standardIcon(QStyle.StandardPixmap.SP_FileIcon),
+            "portfolio": style.standardIcon(QStyle.StandardPixmap.SP_DirIcon),
+            "news": style.standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation),
+            "alerts": style.standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning),
+            "risk": style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload),
+            "analytics": style.standardIcon(QStyle.StandardPixmap.SP_ComputerIcon),
+            "settings": style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload),
+            "logs": style.standardIcon(QStyle.StandardPixmap.SP_DirIcon),
+            "help": style.standardIcon(QStyle.StandardPixmap.SP_DialogHelpButton),
+        }
+        return mapping.get(glyph.lower(), style.standardIcon(QStyle.StandardPixmap.SP_FileIcon))
 
 
 class MainWindow(QMainWindow):
@@ -372,13 +371,12 @@ class MainWindow(QMainWindow):
         self._overview_fill = None
         self._mood_gauge = GaugeWidget()
         self._mood_sparkline = SparklineWidget()
-        self._sidebar_expanded_width = 224
-        self._sidebar_collapsed_width = 78
-        self._sidebar_collapsed = False
-        self._sidebar_idle_timer = QTimer(self)
-        self._sidebar_idle_timer.setSingleShot(True)
-        self._sidebar_idle_timer.setInterval(5000)
-        self._sidebar_idle_timer.timeout.connect(self._collapse_sidebar)
+        self._settings = QSettings("Vyom", "VyomTraderAI")
+        self._sidebar_expanded_width = 240
+        self._sidebar_collapsed_width = 60
+        self._sidebar_collapsed = self._settings.value("ui/sidebar_collapsed", True, type=bool)
+        self._sidebar_toggle_button: QToolButton | None = None
+        self._sidebar_animation: QPropertyAnimation | None = None
         self._refresh_timer = QTimer(self)
         self._refresh_timer.setInterval(15_000)
         self._refresh_timer.timeout.connect(self.refresh_dashboard)
@@ -408,6 +406,7 @@ class MainWindow(QMainWindow):
             HeadlineData("BEL secures 22,463 Cr defence contract", "Moneycontrol", "09:22 AM"),
             HeadlineData("India's manufacturing PMI rises to 58.7", "LiveMint", "09:18 AM"),
             HeadlineData("Global markets rally as US inflation eases", "Reuters", "09:15 AM"),
+            HeadlineData("FIIs turn buyers as defensive sectors attract flows", "CNBC", "08:55 AM"),
         ]
         self._sectors = [
             ("IT", 1.85),
@@ -449,8 +448,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
         root_layout = QHBoxLayout(central)
-        root_layout.setContentsMargins(14, 12, 14, 12)
-        root_layout.setSpacing(12)
+        root_layout.setContentsMargins(12, 10, 12, 10)
+        root_layout.setSpacing(10)
 
         sidebar = self._build_sidebar()
         content = self._build_content_area()
@@ -469,30 +468,29 @@ class MainWindow(QMainWindow):
                 font-family: Segoe UI, Arial, sans-serif;
             }
             QFrame#Sidebar {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(9, 14, 24, 0.98), stop:1 rgba(7, 11, 18, 0.98));
-                border: 1px solid rgba(76, 101, 133, 0.18);
-                border-radius: 20px;
+                background: #0B1220;
+                border: 1px solid rgba(148, 163, 184, 0.14);
+                border-radius: 16px;
             }
             QFrame#TopBar, QFrame#Card {
-                background: rgba(9, 14, 24, 0.88);
-                border: 1px solid rgba(85, 114, 152, 0.18);
+                background: #111827;
+                border: 1px solid rgba(148, 163, 184, 0.14);
                 border-radius: 14px;
             }
             QFrame#MiniCard {
-                background: rgba(11, 17, 29, 0.96);
-                border: 1px solid rgba(81, 109, 142, 0.18);
+                background: #1F2937;
+                border: 1px solid rgba(148, 163, 184, 0.14);
                 border-radius: 12px;
             }
             QLabel#BrandTitle {
-                font-size: 26px;
+                font-size: 22px;
                 font-weight: 700;
-                color: #f2f5ff;
-                letter-spacing: 0.6px;
+                color: #F8FAFC;
+                letter-spacing: 0.3px;
             }
             QLabel#BrandSubtitle {
                 font-size: 11px;
-                color: #a4b1c8;
+                color: #94A3B8;
                 line-height: 1.2;
             }
             QLabel#TopTickerName {
@@ -509,35 +507,42 @@ class MainWindow(QMainWindow):
                 font-size: 11px;
                 font-weight: 600;
             }
-            QPushButton[property="sidebarButton"]:checked QLabel#SideLabel {
-                color: #56e5ff;
-            }
-            QPushButton[property="sidebarButton"]:checked QLabel#SideGlyph {
-                color: #56e5ff;
-            }
-            QPushButton[property="sidebarButton"] {
+            QToolButton[property="sidebarButton"] {
                 text-align: left;
                 background: transparent;
                 border: none;
-                border-radius: 12px;
-                color: #c3cde1;
+                border-radius: 10px;
+                color: #E5E7EB;
+                padding: 8px 10px;
+                spacing: 10px;
+                min-height: 40px;
             }
-            QPushButton[property="sidebarButton"]:hover {
-                background: rgba(83, 160, 198, 0.10);
+            QToolButton[property="sidebarButton"]:hover {
+                background: #1E293B;
+                color: #F8FAFC;
             }
-            QPushButton[property="sidebarButton"]:checked {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 rgba(18, 144, 184, 0.20), stop:1 rgba(26, 96, 159, 0.25));
-                border: 1px solid rgba(82, 205, 255, 0.14);
+            QToolButton[property="sidebarButton"]:checked {
+                background: #2563EB;
+                color: #F8FAFC;
+            }
+            QToolButton#SidebarToggle {
+                background: transparent;
+                border: none;
+                border-radius: 10px;
+                color: #E5E7EB;
+                padding: 0;
+            }
+            QToolButton#SidebarToggle:hover {
+                background: #1E293B;
             }
             QLabel#SectionTitle {
-                color: #f5f8ff;
-                font-size: 13px;
+                color: #F8FAFC;
+                font-size: 14px;
                 font-weight: 700;
-                letter-spacing: 0.3px;
+                letter-spacing: 0.25px;
             }
             QLabel#MutedLabel {
-                color: #8f9db3;
+                color: #94A3B8;
                 font-size: 11px;
             }
             QLabel#Chip {
@@ -613,50 +618,40 @@ class MainWindow(QMainWindow):
                 background: rgba(31, 44, 65, 0.95);
             }
             QLabel#BodyText {
-                color: #dce8ff;
-                font-size: 11px;
+                color: #E5E7EB;
+                font-size: 12px;
             }
             QLabel#BodyTiny {
-                color: #a7b5ca;
-                font-size: 10px;
-            }
-            QLabel#SideGlyph {
-                color: #8fb6ff;
-                font-size: 14px;
-                font-weight: 700;
-            }
-            QLabel#SideLabel {
-                color: #edf3ff;
-                font-size: 13px;
+                color: #94A3B8;
+                font-size: 11px;
             }
             QLabel#SidebarAppName {
-                color: #f2f5ff;
+                color: #F8FAFC;
                 font-size: 15px;
                 font-weight: 700;
-                letter-spacing: 0.8px;
+                letter-spacing: 0.6px;
             }
             QLabel#SidebarAppTag {
-                color: #9daec7;
+                color: #94A3B8;
                 font-size: 10px;
                 letter-spacing: 0.3px;
             }
             """
         )
-        self._expand_sidebar()
-        self._restart_sidebar_timer()
+        self._apply_sidebar_state(animated=False)
 
     def _build_sidebar(self) -> QFrame:
         frame = QFrame(self)
         frame.setObjectName("Sidebar")
-        frame.setFixedWidth(self._sidebar_expanded_width)
+        frame.setFixedWidth(self._sidebar_expanded_width if not self._sidebar_collapsed else self._sidebar_collapsed_width)
         self._sidebar_frame = frame
         layout = QVBoxLayout(frame)
-        layout.setContentsMargins(14, 14, 14, 14)
-        layout.setSpacing(10)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(8)
 
         brand = QVBoxLayout()
         brand.setContentsMargins(0, 0, 0, 0)
-        brand.setSpacing(8)
+        brand.setSpacing(6)
         brand.addWidget(GlowLogo(frame), 0, Qt.AlignmentFlag.AlignHCenter)
 
         app_name = QLabel("VYOM TRADER AI", frame)
@@ -678,40 +673,32 @@ class MainWindow(QMainWindow):
 
         layout.addSpacing(4)
 
+        toggle_row = QHBoxLayout()
+        toggle_row.setContentsMargins(0, 0, 0, 0)
+        toggle_row.setSpacing(0)
+        toggle = QToolButton(frame)
+        toggle.setObjectName("SidebarToggle")
+        toggle.setToolTip("Toggle sidebar")
+        toggle.setFixedSize(38, 38)
+        toggle.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarMenuButton))
+        toggle.setIconSize(QSize(20, 20))
+        toggle.clicked.connect(self._toggle_sidebar)
+        self._sidebar_toggle_button = toggle
+        toggle_row.addStretch(1)
+        toggle_row.addWidget(toggle)
+        layout.addLayout(toggle_row)
+        layout.addSpacing(4)
+
         nav_items = [
-            ("Dashboard", "⌂", True, None),
-            ("Live Market", "∿", False, None),
-            ("AI Scanner", "◌", False, None),
-            ("Top Opportunities", "★", False, None),
-            ("Chart Analysis", "⌇", False, None),
-            ("Watchlist", "▣", False, None),
-            ("Portfolio", "▤", False, None),
-            ("News Center", "◫", False, None),
-            ("Alerts Center", "🔔", False, "12"),
-            ("Risk Dashboard", "⚑", False, None),
-            ("Analytics", "◔", False, None),
-            ("Settings", "⚙", False, None),
-            ("Logs", "◌", False, None),
-            ("Help & Support", "?", False, None),
+            ("Dashboard", "dashboard", True, None),
+            ("Market", "market", False, None),
+            ("Scanner", "scanner", False, None),
+            ("Charts", "charts", False, None),
+            ("News", "news", False, None),
+            ("Settings", "settings", False, None),
         ]
 
         for text, glyph, active, badge in nav_items:
-            glyph = {
-                "Dashboard": "D",
-                "Live Market": "M",
-                "AI Scanner": "AI",
-                "Top Opportunities": "O",
-                "Chart Analysis": "C",
-                "Watchlist": "W",
-                "Portfolio": "P",
-                "News Center": "N",
-                "Alerts Center": "A",
-                "Risk Dashboard": "R",
-                "Analytics": "Y",
-                "Settings": "S",
-                "Logs": "L",
-                "Help & Support": "H",
-            }.get(text, glyph)
             button = SidebarButton(text, glyph, active=active, badge=badge)
             button.setObjectName("SidebarButton")
             button.installEventFilter(self)
@@ -751,18 +738,28 @@ class MainWindow(QMainWindow):
         frame = QFrame(self)
         frame.setObjectName("TopBar")
         layout = QHBoxLayout(frame)
-        layout.setContentsMargins(16, 12, 16, 12)
-        layout.setSpacing(14)
+        layout.setContentsMargins(12, 8, 12, 8)
+        layout.setSpacing(10)
+
+        toggle = QToolButton(frame)
+        toggle.setObjectName("TopIcon")
+        toggle.setToolTip("Toggle sidebar")
+        toggle.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarMenuButton))
+        toggle.setIconSize(QSize(16, 16))
+        toggle.setFixedSize(40, 40)
+        toggle.clicked.connect(self._toggle_sidebar)
+        self._sidebar_toggle_button = toggle
+        layout.addWidget(toggle)
 
         brand = QVBoxLayout()
         title = QLabel("VYOM TRADER AI", frame)
         title.setObjectName("BrandTitle")
-        title.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        title.setFont(QFont("Segoe UI", 13, QFont.Weight.DemiBold))
         title.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         subtitle = QLabel("AI-POWERED INTRADAY TRADING INTELLIGENCE PLATFORM", frame)
         subtitle.setObjectName("BrandSubtitle")
         subtitle.setWordWrap(True)
-        subtitle.setMaximumWidth(420)
+        subtitle.setMaximumWidth(380)
         subtitle.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         brand.addWidget(title)
         brand.addWidget(subtitle)
@@ -771,7 +768,8 @@ class MainWindow(QMainWindow):
         search = QLineEdit(frame)
         search.setObjectName("SearchBar")
         search.setPlaceholderText("Search stocks, news, sectors...")
-        search.setFixedWidth(300)
+        search.setFixedWidth(200)
+        search.setFixedHeight(34)
         layout.addWidget(search)
 
         layout.addSpacing(10)
@@ -789,16 +787,19 @@ class MainWindow(QMainWindow):
     def _build_ticker_card(self, ticker: TickerData) -> QFrame:
         frame = QFrame(self)
         frame.setObjectName("MiniCard")
-        frame.setFixedWidth(126)
+        frame.setFixedWidth(112)
+        frame.setFixedHeight(56)
         frame.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         layout = QVBoxLayout(frame)
-        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setContentsMargins(8, 6, 8, 6)
         layout.setSpacing(1)
 
         name = QLabel(ticker.label, frame)
         name.setObjectName("TopTickerName")
+        name.setStyleSheet("font-size: 10px; color: #9DA9BD;")
         value = QLabel(ticker.value, frame)
         value.setObjectName("TopTickerValue")
+        value.setStyleSheet("font-size: 12px; font-weight: 600; color: #F4F7FF;")
         change = QLabel(ticker.change, frame)
         change.setObjectName("TopTickerChange")
         change.setStyleSheet(f"color: {'#31eb7e' if ticker.positive else '#ff4a4a'};")
@@ -811,7 +812,7 @@ class MainWindow(QMainWindow):
 
     def _build_icon_button(self, glyph: str, badge: str | None = None) -> QWidget:
         container = QFrame(self)
-        container.setFixedSize(42, 42)
+        container.setFixedSize(38, 38)
         container.setObjectName("MiniCard")
         layout = QGridLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -820,7 +821,7 @@ class MainWindow(QMainWindow):
         button = QToolButton(container)
         button.setObjectName("TopIcon")
         button.setText(glyph)
-        button.setFixedSize(40, 40)
+        button.setFixedSize(36, 36)
         layout.addWidget(button, 0, 0, Qt.AlignmentFlag.AlignCenter)
 
         if badge is not None:
@@ -836,15 +837,16 @@ class MainWindow(QMainWindow):
         grid_host = QWidget(self)
         grid = QGridLayout(grid_host)
         grid.setContentsMargins(0, 0, 0, 0)
-        grid.setHorizontalSpacing(12)
-        grid.setVerticalSpacing(12)
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(10)
         grid.setColumnStretch(0, 3)
-        grid.setColumnStretch(1, 3)
-        grid.setColumnStretch(2, 1.35)
-        grid.setColumnStretch(3, 1.55)
-        grid.setColumnStretch(4, 1.45)
-        grid.setRowStretch(0, 4)
-        grid.setRowStretch(1, 3)
+        grid.setColumnStretch(1, 2.4)
+        grid.setColumnStretch(2, 1.1)
+        grid.setColumnStretch(3, 2.8)
+        grid.setColumnStretch(4, 1.5)
+        grid.setColumnStretch(5, 1.0)
+        grid.setRowStretch(0, 3)
+        grid.setRowStretch(1, 2)
 
         overview = self._build_market_overview_card()
         mood_stack = self._build_mood_stack()
@@ -857,8 +859,8 @@ class MainWindow(QMainWindow):
 
         grid.addWidget(overview, 0, 0, 1, 2)
         grid.addWidget(mood_stack, 0, 2, 1, 1)
-        grid.addWidget(opportunities, 0, 3, 1, 1)
-        grid.addWidget(alerts, 0, 4, 1, 1)
+        grid.addWidget(opportunities, 0, 3, 1, 2)
+        grid.addWidget(alerts, 0, 5, 1, 1)
         grid.addWidget(sector, 1, 0, 1, 1)
         grid.addWidget(heatmap, 1, 1, 1, 2)
         grid.addWidget(ai_summary, 1, 3, 1, 1)
@@ -872,12 +874,13 @@ class MainWindow(QMainWindow):
         if min_height > 0:
             frame.setMinimumHeight(min_height)
         layout = QVBoxLayout(frame)
-        layout.setContentsMargins(14, 12, 14, 12)
-        layout.setSpacing(10)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(8)
 
         title_row = QHBoxLayout()
         title_label = QLabel(title, frame)
         title_label.setObjectName("SectionTitle")
+        title_label.setFont(QFont("Segoe UI", 12, QFont.Weight.DemiBold))
         title_row.addWidget(title_label)
         title_row.addStretch(1)
         if subtitle:
@@ -888,7 +891,7 @@ class MainWindow(QMainWindow):
         return frame, layout
 
     def _build_market_overview_card(self) -> QFrame:
-        frame, layout = self._card("MARKET OVERVIEW", min_height=320)
+        frame, layout = self._card("MARKET OVERVIEW", min_height=310)
 
         tabs = QHBoxLayout()
         tabs.setSpacing(6)
@@ -1043,7 +1046,7 @@ class MainWindow(QMainWindow):
         return widget
 
     def _build_opportunities_card(self) -> QFrame:
-        frame, layout = self._card("TOP 5 OPPORTUNITIES", min_height=320)
+        frame, layout = self._card("TOP 5 OPPORTUNITIES", min_height=310)
         for entry in self._opportunities:
             layout.addWidget(self._opportunity_row(entry))
 
@@ -1057,50 +1060,68 @@ class MainWindow(QMainWindow):
     def _opportunity_row(self, entry: OpportunityData) -> QWidget:
         row = QFrame(self)
         row.setObjectName("MiniCard")
-        row.setFixedHeight(50)
-        layout = QHBoxLayout(row)
+        row.setFixedHeight(86)
+        layout = QVBoxLayout(row)
         layout.setContentsMargins(10, 8, 10, 8)
-        layout.setSpacing(10)
+        layout.setSpacing(6)
 
-        rank = QLabel(str(entry.rank), row)
-        rank.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        rank.setFixedSize(22, 22)
-        rank.setStyleSheet(
-            "background: rgba(61, 91, 222, 1); color: white; font-size: 11px; font-weight: 700; border-radius: 11px;"
-        )
-        layout.addWidget(rank)
-
-        text = QVBoxLayout()
+        header = QHBoxLayout()
         symbol = QLabel(entry.symbol, row)
         symbol.setStyleSheet("color: #f4f8ff; font-size: 11px; font-weight: 700;")
-        name = QLabel(entry.name, row)
-        name.setStyleSheet("color: #7e8da6; font-size: 9px;")
-        text.addWidget(symbol)
-        text.addWidget(name)
-        layout.addLayout(text, 1)
-
-        score = QLabel(str(entry.score), row)
-        score.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        score.setFixedSize(22, 22)
-        score.setStyleSheet(
-            "background: rgba(24, 123, 58, 0.9); color: #9fffd0; font-size: 10px; font-weight: 700; border-radius: 6px;"
-        )
-        layout.addWidget(score)
+        header.addWidget(symbol)
+        header.addStretch(1)
 
         action = QLabel(entry.action, row)
         action.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        action.setFixedSize(40, 22)
+        action.setFixedSize(52, 22)
         action.setObjectName("ChipGreen" if entry.action_positive else "ChipOrange")
-        layout.addWidget(action)
+        header.addWidget(action)
+
+        confidence = QLabel(f"{entry.score}%", row)
+        confidence.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        confidence.setStyleSheet("color: #35e7ff; font-size: 10px; font-weight: 700;")
+        header.addWidget(confidence)
+        layout.addLayout(header)
+
+        name = QLabel(entry.name, row)
+        name.setStyleSheet("color: #9aa7bd; font-size: 10px;")
+        layout.addWidget(name)
+
+        metrics = QHBoxLayout()
+        metrics.setSpacing(8)
+        for label_text, value_text in self._opportunity_metrics(entry):
+            metric = QFrame(row)
+            metric.setObjectName("MiniCard")
+            metric_layout = QVBoxLayout(metric)
+            metric_layout.setContentsMargins(6, 4, 6, 4)
+            metric_layout.setSpacing(0)
+            title = QLabel(label_text, metric)
+            title.setStyleSheet("color: #8ea0b8; font-size: 8px;")
+            value = QLabel(value_text, metric)
+            value.setStyleSheet("color: #f4f8ff; font-size: 9px; font-weight: 600;")
+            metric_layout.addWidget(title)
+            metric_layout.addWidget(value)
+            metrics.addWidget(metric)
+        layout.addLayout(metrics)
         return row
 
+    def _opportunity_metrics(self, entry: OpportunityData) -> list[tuple[str, str]]:
+        values = {
+            "BEL": [("Entry", "276.10"), ("SL", "268.20"), ("Target", "289.50")],
+            "HAL": [("Entry", "4,480"), ("SL", "4,320"), ("Target", "4,760")],
+            "TATAMOTORS": [("Entry", "1,028"), ("SL", "980"), ("Target", "1,080")],
+            "ICICI BANK": [("Entry", "1,210"), ("SL", "1,170"), ("Target", "1,270")],
+            "TCS": [("Entry", "4,180"), ("SL", "4,050"), ("Target", "4,400")],
+        }
+        return values.get(entry.symbol, [("Entry", "—"), ("SL", "—"), ("Target", "—")])
+
     def _build_alerts_card(self) -> QFrame:
-        frame, layout = self._card("RECENT ALERTS", min_height=320)
+        frame, layout = self._card("RECENT ALERTS", min_height=310)
         for alert in self._alerts:
             layout.addWidget(self._alert_row(alert))
         footer = QLabel("View All Alerts  →", frame)
         footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        footer.setStyleSheet("color: #55dfff; font-size: 11px; font-weight: 600; padding-top: 2px;")
+        footer.setStyleSheet("color: #55dfff; font-size: 12px; font-weight: 600; padding-top: 2px;")
         layout.addStretch(1)
         layout.addWidget(footer)
         return frame
@@ -1139,7 +1160,7 @@ class MainWindow(QMainWindow):
         return row
 
     def _build_sector_card(self) -> QFrame:
-        frame, layout = self._card("SECTOR PERFORMANCE", min_height=268)
+        frame, layout = self._card("SECTOR PERFORMANCE", min_height=286)
         tabs = QHBoxLayout()
         tabs.setSpacing(6)
         for label in ["1D", "1W", "1M", "1Y"]:
@@ -1187,7 +1208,7 @@ class MainWindow(QMainWindow):
         return row
 
     def _build_heatmap_card(self) -> QFrame:
-        frame, layout = self._card("HEATMAP", min_height=268)
+        frame, layout = self._card("HEATMAP", min_height=286)
         selector = QHBoxLayout()
         selector.setSpacing(8)
         selector.addWidget(PaletteButton("NIFTY 50", active=True, parent=frame))
@@ -1238,17 +1259,14 @@ class MainWindow(QMainWindow):
         return tile
 
     def _build_ai_summary_card(self) -> QFrame:
-        frame, layout = self._card("AI SUMMARY", min_height=268)
+        frame, layout = self._card("AI SUMMARY", min_height=286)
         body = QVBoxLayout()
-        body.setSpacing(10)
-        bullets = [
-            "Market is bullish with strong buying in IT, Auto and Defence sectors.",
-            "Nifty holding above 25,200 key support.",
-            "FII buying observed in Auto and Capital Goods.",
-            "Top opportunity today: BEL, HAL, TATAMOTORS",
-        ]
-        for index, line in enumerate(bullets):
-            body.addWidget(self._summary_bullet(line, index == len(bullets) - 1))
+        body.setSpacing(8)
+        body.addWidget(self._summary_header("Market Outlook", "Bullish", "#35e7ff"))
+        body.addWidget(self._summary_line("Reason", "Defence and Auto are leading while NIFTY holds above key support."))
+        body.addWidget(self._summary_line("Flow", "FIIs buying in select large caps and momentum names."))
+        body.addWidget(self._summary_line("Best Trade", "BEL"))
+        body.addWidget(self._summary_line("Confidence", "94%"))
         body.addStretch(1)
         layout.addLayout(body)
         return frame
@@ -1256,103 +1274,124 @@ class MainWindow(QMainWindow):
     def _ai_orb_widget(self) -> QFrame:
         return AIBadgeWidget(self)
 
-    def _summary_bullet(self, text: str, highlight: bool = False) -> QWidget:
+    def _summary_header(self, title: str, value: str, color: str) -> QWidget:
         row = QWidget(self)
-        h = QHBoxLayout(row)
-        h.setContentsMargins(0, 0, 0, 0)
-        h.setSpacing(8)
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+        title_label = QLabel(title, row)
+        title_label.setStyleSheet("color: #f4f8ff; font-size: 11px; font-weight: 700;")
+        value_label = QLabel(value, row)
+        value_label.setStyleSheet(f"color: {color}; font-size: 12px; font-weight: 700;")
+        layout.addWidget(title_label)
+        layout.addStretch(1)
+        layout.addWidget(value_label)
+        return row
 
-        dot = QLabel("◉" if highlight else "•", row)
-        dot.setStyleSheet("color: #35e7ff; font-size: 10px;")
-        h.addWidget(dot)
-
-        label = QLabel(text, row)
-        label.setWordWrap(True)
-        label.setStyleSheet(
-            "color: #c9d3e3; font-size: 10px; line-height: 1.3;"
-            + ("font-weight: 700; color: #f0b430;" if highlight else "")
-        )
-        h.addWidget(label, 1)
+    def _summary_line(self, label: str, value: str) -> QWidget:
+        row = QWidget(self)
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+        label_widget = QLabel(label, row)
+        label_widget.setStyleSheet("color: #8ea0b8; font-size: 10px; font-weight: 600;")
+        value_widget = QLabel(value, row)
+        value_widget.setWordWrap(True)
+        value_widget.setStyleSheet("color: #e7eef9; font-size: 11px;")
+        layout.addWidget(label_widget)
+        layout.addWidget(value_widget, 1)
         return row
 
     def _build_news_card(self) -> QFrame:
-        frame, layout = self._card("NEWS HEADLINES", min_height=268)
-        for headline in self._headlines:
-            layout.addWidget(self._news_row(headline))
+        frame, layout = self._card("NEWS HEADLINES", min_height=286)
+        for index, headline in enumerate(self._headlines[:5]):
+            layout.addWidget(self._news_row(headline, index))
         return frame
 
-    def _news_row(self, headline: HeadlineData) -> QWidget:
+    def _news_row(self, headline: HeadlineData, index: int) -> QWidget:
         row = QWidget(self)
         h = QHBoxLayout(row)
         h.setContentsMargins(0, 0, 0, 0)
         h.setSpacing(8)
 
-        bullet = QLabel("◆", row)
-        bullet.setStyleSheet("color: #f0a93a; font-size: 10px;")
+        sentiment = ("Positive", "Negative", "Neutral")[index % 3]
+        color = "#34ef77" if sentiment == "Positive" else "#ff5b5b" if sentiment == "Negative" else "#94a3bc"
+        bullet = QLabel("●", row)
+        bullet.setStyleSheet(f"color: {color}; font-size: 10px;")
         h.addWidget(bullet)
 
         text = QVBoxLayout()
         title = QLabel(headline.title, row)
         title.setWordWrap(True)
         title.setStyleSheet("color: #eef4ff; font-size: 10px; font-weight: 600;")
-        source = QLabel(headline.source, row)
+        source = QLabel(f"{headline.source} • {headline.time}", row)
         source.setStyleSheet("color: #8e9eb6; font-size: 9px;")
         text.addWidget(title)
         text.addWidget(source)
         h.addLayout(text, 1)
 
-        time = QLabel(headline.time, row)
-        time.setStyleSheet("color: #92a3ba; font-size: 9px;")
-        h.addWidget(time)
+        chip = QLabel(sentiment, row)
+        chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        chip.setFixedHeight(20)
+        chip.setStyleSheet(
+            f"color: {color}; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 0 8px; font-size: 9px;"
+        )
+        h.addWidget(chip)
         return row
 
     def _set_active_nav(self, selected: SidebarButton) -> None:
         for button in self._sidebar_buttons:
             button.setChecked(button is selected)
-        self._expand_sidebar()
-        self._restart_sidebar_timer()
+        if self._sidebar_collapsed:
+            self._expand_sidebar()
+
+    def _toggle_sidebar(self) -> None:
+        if self._sidebar_collapsed:
+            self._expand_sidebar()
+        else:
+            self._collapse_sidebar()
+
+    def _apply_sidebar_state(self, *, animated: bool = True) -> None:
+        if self._sidebar_frame is None:
+            return
+
+        target_width = self._sidebar_expanded_width if not self._sidebar_collapsed else self._sidebar_collapsed_width
+        if animated and self._sidebar_frame.width() != target_width:
+            if self._sidebar_animation is not None:
+                self._sidebar_animation.stop()
+            self._sidebar_animation = QPropertyAnimation(self._sidebar_frame, b"maximumWidth")
+            self._sidebar_animation.setDuration(250)
+            self._sidebar_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+            self._sidebar_animation.setStartValue(self._sidebar_frame.width())
+            self._sidebar_animation.setEndValue(target_width)
+            self._sidebar_animation.start()
+        else:
+            self._sidebar_frame.setFixedWidth(target_width)
+            self._sidebar_frame.setMaximumWidth(target_width)
+            self._sidebar_frame.setMinimumWidth(target_width)
+
+        if self._sidebar_brand_name is not None:
+            self._sidebar_brand_name.setVisible(not self._sidebar_collapsed)
+        if self._sidebar_brand_tag is not None:
+            self._sidebar_brand_tag.setVisible(not self._sidebar_collapsed)
+        if self._sidebar_footer_label is not None:
+            self._sidebar_footer_label.setVisible(not self._sidebar_collapsed)
+        if self._sidebar_footer_version is not None:
+            self._sidebar_footer_version.setVisible(not self._sidebar_collapsed)
+        for button in self._sidebar_buttons:
+            button.set_collapsed(self._sidebar_collapsed)
+
+        self._settings.setValue("ui/sidebar_collapsed", self._sidebar_collapsed)
 
     def _expand_sidebar(self) -> None:
         self._sidebar_collapsed = False
-        if self._sidebar_frame is not None:
-            self._sidebar_frame.setFixedWidth(self._sidebar_expanded_width)
-        if self._sidebar_brand_name is not None:
-            self._sidebar_brand_name.setVisible(True)
-        if self._sidebar_brand_tag is not None:
-            self._sidebar_brand_tag.setVisible(True)
-        if self._sidebar_footer_label is not None:
-            self._sidebar_footer_label.setVisible(True)
-        if self._sidebar_footer_version is not None:
-            self._sidebar_footer_version.setVisible(True)
-        for button in self._sidebar_buttons:
-            button.set_collapsed(False)
+        self._apply_sidebar_state(animated=True)
 
     def _collapse_sidebar(self) -> None:
         self._sidebar_collapsed = True
-        if self._sidebar_frame is not None:
-            self._sidebar_frame.setFixedWidth(self._sidebar_collapsed_width)
-        if self._sidebar_brand_name is not None:
-            self._sidebar_brand_name.setVisible(False)
-        if self._sidebar_brand_tag is not None:
-            self._sidebar_brand_tag.setVisible(False)
-        if self._sidebar_footer_label is not None:
-            self._sidebar_footer_label.setVisible(False)
-        if self._sidebar_footer_version is not None:
-            self._sidebar_footer_version.setVisible(False)
-        for button in self._sidebar_buttons:
-            button.set_collapsed(True)
-
-    def _restart_sidebar_timer(self) -> None:
-        self._sidebar_idle_timer.start()
+        self._apply_sidebar_state(animated=True)
 
     def eventFilter(self, obj, event):  # noqa: N802 - Qt naming
-        if obj is self._sidebar_frame or obj is self.centralWidget() or obj in self._sidebar_buttons:
-            if event.type() == QEvent.Type.Enter:
-                self._expand_sidebar()
-                self._restart_sidebar_timer()
-            elif event.type() == QEvent.Type.MouseButtonPress:
-                self._expand_sidebar()
-                self._restart_sidebar_timer()
         return super().eventFilter(obj, event)
 
     def refresh_dashboard(self) -> None:
