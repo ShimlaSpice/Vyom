@@ -8,7 +8,7 @@
 
 # Version
 
-Current Version: **0.1.0 (Development)**
+Current Version: **0.2.0 (Development)**
 
 Project Status: **Under Active Development**
 

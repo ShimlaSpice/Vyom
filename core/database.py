@@ -7,11 +7,11 @@ from pathlib import Path
 from typing import Iterator
 
 from loguru import logger
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from config import Settings
-from data.models import Base
+from data.models import Base, WatchlistItem
 
 
 class DatabaseManager:
@@ -70,6 +70,60 @@ class DatabaseManager:
             raise
         finally:
             session.close()
+
+    def list_watchlist_items(self) -> list[WatchlistItem]:
+        """Return the stored watchlist sorted by symbol."""
+
+        if self._session_factory is None:
+            raise RuntimeError("DatabaseManager has not been initialized")
+
+        with self.session_scope() as session:
+            statement = select(WatchlistItem).order_by(WatchlistItem.symbol.asc())
+            return list(session.scalars(statement).all())
+
+    def upsert_watchlist_item(
+        self,
+        symbol: str,
+        *,
+        name: str = "",
+        notes: str = "",
+    ) -> WatchlistItem:
+        """Insert or update a watchlist entry."""
+
+        normalized_symbol = symbol.strip().upper()
+        if not normalized_symbol:
+            raise ValueError("symbol must not be empty")
+
+        with self.session_scope() as session:
+            item = session.get(WatchlistItem, normalized_symbol)
+            if item is None:
+                item = WatchlistItem(symbol=normalized_symbol, name=name, notes=notes)
+                session.add(item)
+            else:
+                item.name = name
+                item.notes = notes
+            session.flush()
+            return item
+
+    def delete_watchlist_item(self, symbol: str) -> bool:
+        """Delete a watchlist entry if it exists."""
+
+        normalized_symbol = symbol.strip().upper()
+        if not normalized_symbol:
+            return False
+
+        with self.session_scope() as session:
+            item = session.get(WatchlistItem, normalized_symbol)
+            if item is None:
+                return False
+            session.delete(item)
+            return True
+
+    def seed_watchlist(self, symbols: list[str]) -> None:
+        """Populate the watchlist with default symbols if needed."""
+
+        for symbol in symbols:
+            self.upsert_watchlist_item(symbol, name=symbol)
 
     def dispose(self) -> None:
         """Dispose the SQLAlchemy engine safely."""

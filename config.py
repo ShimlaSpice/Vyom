@@ -170,7 +170,7 @@ class ConfigManager:
         return Settings(
             application=ApplicationConfig(
                 name=str(application.get("name", "VYOM Trader AI")),
-                version=str(application.get("version", "0.1.0")),
+                version=str(application.get("version", "0.2.0")),
                 environment=str(application.get("environment", "development")),
             ),
             paths=PathConfig(

@@ -1,4 +1,4 @@
-"""Application entry point for VYOM Trader AI."""\
+"""Application entry point for VYOM Trader AI."""
 #author susheel sahoo
 
 from __future__ import annotations
