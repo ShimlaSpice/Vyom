@@ -10,6 +10,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Optional
 
+from app.scanner.technical_indicators import IndicatorResult, TechnicalIndicatorEngine
+
 logger = logging.getLogger(__name__)
 
 
@@ -59,17 +61,23 @@ class ScoringEngine:
         "news": 10,
     }
 
-    def __init__(self, rules: Optional[Mapping[str, float]] = None) -> None:
+    def __init__(
+        self,
+        rules: Optional[Mapping[str, float]] = None,
+        indicator_engine: Optional[TechnicalIndicatorEngine] = None,
+    ) -> None:
         """Create a scoring engine with optional overrides.
 
         Args:
             rules: Optional overrides for scoring weights.
+            indicator_engine: Optional technical indicator engine dependency.
         """
 
         self.rules = dict(self.DEFAULT_RULES)
         if rules:
             self.rules.update({key: float(value) for key, value in rules.items()})
         self.logger = logger
+        self.indicator_engine = indicator_engine or TechnicalIndicatorEngine(logger_instance=self.logger)
 
     def score_candidate(self, candidate: Mapping[str, Any]) -> int:
         """Score one candidate and return an integer between 0 and 100.
@@ -95,9 +103,10 @@ class ScoringEngine:
             return self._build_result("", 0, "AVOID", 0.0, 0, 0, 0, 0, 0, ["Insufficient data"])
 
         symbol = str(candidate.get("symbol") or "UNKNOWN").strip().upper()
-        technical_score = self._score_technical(candidate)
-        momentum_score = self._score_momentum(candidate)
-        volume_score = self._score_volume(candidate)
+        indicators = self._extract_indicators(candidate)
+        technical_score = self._score_technical(candidate, indicators)
+        momentum_score = self._score_momentum(candidate, indicators)
+        volume_score = self._score_volume(candidate, indicators)
         market_score = self._score_market(candidate)
         news_score = self._score_news(candidate)
 
@@ -125,7 +134,7 @@ class ScoringEngine:
             reasons=reasons,
         )
 
-    def _score_technical(self, candidate: Mapping[str, Any]) -> int:
+    def _score_technical(self, candidate: Mapping[str, Any], indicators: Optional[IndicatorResult] = None) -> int:
         """Score the technical setup on a 0-40 scale."""
 
         score = 0
@@ -136,6 +145,13 @@ class ScoringEngine:
         ema50 = self._coerce_float(candidate.get("ema50"))
         rsi = self._coerce_float(candidate.get("rsi"))
         macd = self._coerce_float(candidate.get("macd"))
+
+        if indicators is not None and indicators.valid:
+            price = indicators.close if indicators.close is not None else price
+            ema20 = indicators.ema20 if indicators.ema20 is not None else ema20
+            ema50 = indicators.ema50 if indicators.ema50 is not None else ema50
+            rsi = indicators.rsi14 if indicators.rsi14 is not None else rsi
+            macd = indicators.macd if indicators.macd is not None else macd
 
         if price and ema20 and price > ema20:
             score += 10
@@ -160,10 +176,12 @@ class ScoringEngine:
 
         return self._clamp(score, 0, self.CATEGORY_MAXIMUMS["technical"])
 
-    def _score_momentum(self, candidate: Mapping[str, Any]) -> int:
+    def _score_momentum(self, candidate: Mapping[str, Any], indicators: Optional[IndicatorResult] = None) -> int:
         """Score momentum on a 0-20 scale."""
 
         momentum = self._coerce_float(candidate.get("momentum"))
+        if indicators is not None and indicators.valid and indicators.momentum is not None:
+            momentum = indicators.momentum
         trend_continuation = bool(candidate.get("trend_continuation"))
 
         if not self._has_value(momentum):
@@ -179,10 +197,12 @@ class ScoringEngine:
             return self._clamp(base_score, 0, self.CATEGORY_MAXIMUMS["momentum"])
         return self._clamp(base_score, 0, self.CATEGORY_MAXIMUMS["momentum"])
 
-    def _score_volume(self, candidate: Mapping[str, Any]) -> int:
+    def _score_volume(self, candidate: Mapping[str, Any], indicators: Optional[IndicatorResult] = None) -> int:
         """Score relative volume behavior on a 0-15 scale."""
 
         relative_volume = self._coerce_float(candidate.get("relative_volume"))
+        if indicators is not None and indicators.valid and indicators.relative_volume is not None:
+            relative_volume = indicators.relative_volume
         volume_spike = bool(candidate.get("volume_spike"))
 
         if not self._has_value(relative_volume):
@@ -321,6 +341,19 @@ class ScoringEngine:
         if not reasons:
             reasons.append("Insufficient data")
         return reasons
+
+    def _extract_indicators(self, candidate: Mapping[str, Any]) -> Optional[IndicatorResult]:
+        """Create an IndicatorResult from either the candidate or a raw DataFrame."""
+
+        dataframe = candidate.get("dataframe")
+        if dataframe is None:
+            return None
+
+        try:
+            return self.indicator_engine.calculate(dataframe)
+        except Exception as exc:  # pragma: no cover - defensive guard
+            self.logger.warning("Technical indicator calculation failed: %s", exc)
+            return None
 
     def _build_result(
         self,

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import unittest
 
+import pandas as pd
+
 from app.scanner.scoring import ScoreResult, ScoringEngine
 
 
@@ -122,6 +124,26 @@ class ScoringEngineTests(unittest.TestCase):
         self.assertEqual(result.recommendation, "AVOID")
         self.assertLessEqual(result.confidence, 30.0)
         self.assertIn("Insufficient data", result.reasons)
+
+    def test_scoring_engine_consumes_ohlcv_dataframe(self) -> None:
+        """The scoring engine should derive features from an OHLCV DataFrame via the technical engine."""
+
+        engine = ScoringEngine()
+        frame = pd.DataFrame(
+            {
+                "Open": [100.0, 102.0, 101.0, 103.0, 105.0, 107.0],
+                "High": [103.0, 104.0, 105.0, 107.0, 108.0, 110.0],
+                "Low": [98.0, 100.0, 99.0, 101.0, 103.0, 105.0],
+                "Close": [101.0, 103.0, 102.0, 104.0, 106.0, 109.0],
+                "Volume": [1_000_000, 1_100_000, 1_200_000, 1_300_000, 1_400_000, 1_500_000],
+            }
+        )
+
+        result = engine.score_stock({"symbol": "BEL", "dataframe": frame})
+
+        self.assertEqual(result.symbol, "BEL")
+        self.assertGreaterEqual(result.total_score, 0)
+        self.assertLessEqual(result.total_score, 100)
 
 
 if __name__ == "__main__":
