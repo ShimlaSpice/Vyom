@@ -68,7 +68,7 @@ class DecisionEngine:
             symbol=score_result.symbol,
             action=action,
             trade_quality=trade_quality,
-            confidence=round(score_result.confidence, 2),
+            confidence=round(self._calculate_confidence(score_result), 2),
             risk_level=risk_level,
             entry_price=entry_price,
             stop_loss=stop_loss,
@@ -124,13 +124,81 @@ class DecisionEngine:
         momentum_score: int,
         technical_score: int,
     ) -> str:
-        """Assess risk based on confidence and supporting market conditions."""
+        """Assess trade risk using confidence and setup quality."""
 
-        if confidence < 45.0 or market_score <= 4 or volume_score <= 3 or momentum_score <= 3 or technical_score <= 6:
-            return "HIGH"
-        if confidence < 70.0 or market_score <= 8 or volume_score <= 6 or momentum_score <= 6 or technical_score <= 15:
+        score = 0
+
+        if confidence >= 70:
+            score += 3
+        elif confidence >= 50:
+            score += 2
+        else:
+            score += 1
+
+        if technical_score >= 20:
+            score += 3
+        elif technical_score >= 15:
+            score += 2
+        else:
+            score += 1
+
+        if momentum_score >= 8:
+            score += 2
+        else:
+            score += 1
+
+        if volume_score >= 8:
+            score += 2
+        else:
+            score += 1
+
+        if market_score >= 8:
+            score += 2
+        else:
+            score += 1
+
+        if score >= 11:
+            return "LOW"
+
+        if score >= 8:
             return "MEDIUM"
-        return "LOW"
+
+        return "HIGH"
+
+    def _calculate_confidence(self, score_result: ScoreResult) -> float:
+        """Calculate trade confidence using weighted decision factors."""
+
+        confidence = 0.0
+
+        # Trend (30)
+        confidence += min(score_result.technical_score, 30)
+
+        # Momentum (25)
+        confidence += min(score_result.momentum_score * 2, 25)
+
+        # Volume (20)
+        confidence += min(score_result.volume_score * 2, 20)
+
+        # Market (10)
+        confidence += min(score_result.market_score, 10)
+
+        # Risk Adjustment (15)
+        risk = self._assess_risk(
+            score_result.confidence,
+            score_result.market_score,
+            score_result.volume_score,
+            score_result.momentum_score,
+            score_result.technical_score,
+        )
+
+        if risk == "LOW":
+            confidence += 15
+        elif risk == "MEDIUM":
+            confidence += 8
+        else:
+            confidence += 3
+
+        return min(confidence, 100.0)
 
     def _build_signals(
         self,
@@ -144,15 +212,36 @@ class DecisionEngine:
         negative_signals: list[str] = []
         warnings: list[str] = []
 
-        if score_result.technical_score >= 20:
-            positive_signals.append("Strong technical structure")
+        # Trend Analysis
+        if (
+            score_result.current_price
+            and score_result.ema20
+            and score_result.current_price > score_result.ema20
+        ):
+            positive_signals.append(
+                f"Price is above EMA20 ({score_result.ema20:.2f})"
+            )
         else:
-            negative_signals.append("Weak technical structure")
+            negative_signals.append("Price is trading below EMA20")
 
-        if score_result.momentum_score >= 10:
-            positive_signals.append("Bullish momentum")
+        if (
+            score_result.ema20
+            and score_result.ema50
+            and score_result.ema20 > score_result.ema50
+        ):
+            positive_signals.append("EMA20 is above EMA50")
         else:
-            negative_signals.append("Momentum is not compelling")
+            negative_signals.append("EMA20 is below EMA50")
+
+        if score_result.rsi is not None:
+            if score_result.rsi >= 55:
+                positive_signals.append(
+                    f"RSI is bullish ({score_result.rsi:.2f})"
+                )
+            else:
+                negative_signals.append(
+                    f"RSI is weak ({score_result.rsi:.2f})"
+                )
 
         if score_result.volume_score >= 10:
             positive_signals.append("Above-average volume")
