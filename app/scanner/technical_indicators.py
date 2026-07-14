@@ -95,11 +95,18 @@ class TechnicalIndicatorEngine:
             return self._cache[cache_key]
 
         prepared = self._prepare_frame(frame)
+        print("\n===== PREPARED DATA =====")
+        print(prepared.head())
+        print(prepared.dtypes)
+        print("=========================\n")
         if prepared.empty:
             result = IndicatorResult(valid=False, missing_columns=["dataframe"])
             self._cache[cache_key] = result
             return result
-
+        
+        print("Close type:", type(prepared["Close"]))
+        print("Volume type:", type(prepared["Volume"]))
+        
         result = IndicatorResult(
             close=self._last_value(prepared["Close"]),
             volume=self._last_value(prepared["Volume"]),
@@ -149,7 +156,13 @@ class TechnicalIndicatorEngine:
             return dataframe
 
         normalized = dataframe.copy()
-        column_map = {col.lower(): col for col in normalized.columns}
+        column_map = {}
+        for col in normalized.columns:
+            if isinstance(col, tuple):
+                key = str(col[0]).lower()
+            else:
+                key = str(col).lower()
+            column_map[key] = col    
         for lower_name, canonical_name in {
             "open": "Open",
             "high": "High",

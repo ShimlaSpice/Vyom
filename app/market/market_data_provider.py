@@ -198,6 +198,8 @@ class MarketDataProvider:
         """Normalize a downloaded frame to a consistent OHLCV shape."""
 
         normalized = frame.copy()
+        if isinstance(normalized.columns, pd.MultiIndex):
+            normalized.columns = normalized.columns.get_level_values(0)
         if normalized.empty:
             return normalized
 

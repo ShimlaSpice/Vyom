@@ -28,6 +28,12 @@ class ScoreResult:
     volume_score: int
     market_score: int
     news_score: int
+    current_price: float | None = None
+    ema20: float | None = None
+    ema50: float | None = None
+    rsi: float | None = None
+    atr: float | None = None
+    vwap: float | None = None
     reasons: list[str] = field(default_factory=list)
 
 
@@ -100,7 +106,18 @@ class ScoringEngine:
         """
 
         if not candidate:
-            return self._build_result("", 0, "AVOID", 0.0, 0, 0, 0, 0, 0, ["Insufficient data"])
+            return self._build_result(
+                symbol="",
+                total_score=0,
+                recommendation="AVOID",
+                confidence=0.0,
+                technical_score=0,
+                momentum_score=0,
+                volume_score=0,
+                market_score=0,
+                news_score=0,
+                reasons=["Insufficient data"],
+                )
 
         symbol = str(candidate.get("symbol") or "UNKNOWN").strip().upper()
         indicators = self._extract_indicators(candidate)
@@ -131,6 +148,12 @@ class ScoringEngine:
             volume_score=volume_score,
             market_score=market_score,
             news_score=news_score,
+            current_price=indicators.close if indicators else None,
+            ema20=indicators.ema20 if indicators else None,
+            ema50=indicators.ema50 if indicators else None,
+            rsi=indicators.rsi14 if indicators else None,
+            atr=indicators.atr14 if indicators else None,
+            vwap=indicators.vwap if indicators else None,
             reasons=reasons,
         )
 
@@ -366,7 +389,13 @@ class ScoringEngine:
         volume_score: int,
         market_score: int,
         news_score: int,
-        reasons: list[str],
+        current_price: float | None = None,
+        ema20: float | None = None,
+        ema50: float | None = None,
+        rsi: float | None = None,
+        atr: float | None = None,
+        vwap: float | None = None,
+        reasons: list[str] = None,
     ) -> ScoreResult:
         """Create a ScoreResult from calculated components."""
 
@@ -380,7 +409,15 @@ class ScoringEngine:
             volume_score=volume_score,
             market_score=market_score,
             news_score=news_score,
-            reasons=reasons,
+
+            current_price=current_price,
+            ema20=ema20,
+            ema50=ema50,
+            rsi=rsi,
+            atr=atr,
+            vwap=vwap,
+
+            reasons=reasons or [],
         )
 
     def _coerce_float(self, value: Any) -> Optional[float]:

@@ -54,7 +54,7 @@ class DecisionEngine:
 
         action, trade_quality, risk_level = self._derive_action(score_result)
         positive_signals, negative_signals, warnings = self._build_signals(score_result, action, risk_level)
-        entry_price, stop_loss, target_price, risk_reward_ratio = self._build_price_targets(action)
+        entry_price, stop_loss, target_price, risk_reward_ratio = self._build_price_targets(action,  score_result,)
         summary = self._build_summary(score_result, action, trade_quality)
 
         self.logger.debug(
@@ -201,30 +201,48 @@ class DecisionEngine:
 
         return positive_signals, negative_signals, warnings
 
-    def _build_price_targets(self, action: str) -> tuple[Optional[float], Optional[float], Optional[float], Optional[float]]:
-        """Generate placeholder entry, stop-loss, and target levels."""
+    def _build_price_targets(
+        self,
+        action: str,
+        score_result: ScoreResult,
+    ) -> tuple[Optional[float], Optional[float], Optional[float], Optional[float]]:
+        """Generate entry, stop-loss and target using live price and ATR."""
 
-        base_price = 100.0
+        if score_result.current_price is None:
+            return None, None, None, None
+        
+        entry_price = round(score_result.current_price, 2)
+        atr = score_result.atr or (entry_price * 0.02)
+
         if action == "BUY":
-            entry_price = base_price
-            stop_loss = round(base_price * 0.95, 2)
-            target_price = round(base_price * 1.10, 2)
-        elif action == "WATCH":
-            entry_price = base_price
-            stop_loss = round(base_price * 0.92, 2)
-            target_price = round(base_price * 1.05, 2)
-        else:
-            entry_price = base_price
-            stop_loss = round(base_price * 0.90, 2)
-            target_price = round(base_price * 0.98, 2)
+            stop_loss = round(entry_price - (1.5 * atr), 2)
+            target_price = round(entry_price + (3.0 * atr), 2)
 
-        risk_reward_ratio = round((target_price - entry_price) / max(entry_price - stop_loss, 1.0), 2) if entry_price and stop_loss and target_price else None
+        elif action == "WATCH":
+            stop_loss = round(entry_price - (2.0 * atr), 2)
+            target_price = round(entry_price + (2.0 * atr), 2)
+
+        else:
+            stop_loss = round(entry_price - (2.5 * atr), 2)
+            target_price = round(entry_price + (1.0 * atr), 2)
+
+        risk = max(entry_price - stop_loss, 0.01)
+        reward = target_price - entry_price
+
+        risk_reward_ratio = round(reward / risk, 2)
+
         return entry_price, stop_loss, target_price, risk_reward_ratio
 
-    def _build_summary(self, score_result: ScoreResult, action: str, trade_quality: str) -> str:
+    def _build_summary(
+        self,
+        score_result: ScoreResult,
+        action: str,
+        trade_quality: str
+    ) -> str:
         """Create a human-readable summary from the score result."""
 
         symbol = score_result.symbol or "UNKNOWN"
+        
         if action == "BUY":
             return (
                 f"{symbol} shows strong trend continuation with above-average volume and bullish momentum. "
