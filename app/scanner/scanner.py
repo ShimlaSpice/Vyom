@@ -13,6 +13,7 @@ from typing import Any, Mapping, Optional, Sequence
 from app.market.market_data_provider import MarketDataProvider
 from app.scanner.filters import FilterEngine
 from app.scanner.scoring import ScoringEngine
+from app.scanner.decision_engine import DecisionEngine
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,7 @@ class ScannerEngine:
         """
 
         self.scoring_engine = scoring_engine or ScoringEngine()
+        self.decision_engine = DecisionEngine()
         self.filter_engine = filter_engine or FilterEngine()
         self.market_data_provider = market_data_provider or MarketDataProvider()
         self.logger = logger_instance or logger

@@ -10,7 +10,7 @@ from app.market.market_data_provider import MarketDataProvider
 from app.scanner.decision_engine import DecisionEngine
 from app.scanner.scoring import ScoringEngine
 from app.scanner.technical_indicators import TechnicalIndicatorEngine
-
+from app.scanner.candidate_builder import build_candidate
 
 def normalize_symbol(symbol: str) -> str:
     """Return an exchange-qualified ticker for Indian equities when needed."""
@@ -21,7 +21,7 @@ def normalize_symbol(symbol: str) -> str:
     return f"{cleaned}.NS"
 
 
-def build_candidate(symbol: str, dataframe: Any) -> dict[str, Any]:
+def old_build_candidate(symbol: str, dataframe: Any) -> dict[str, Any]:
     """Create a scoring candidate from a downloaded OHLCV frame."""
 
     candidate: dict[str, Any] = {"symbol": symbol}
