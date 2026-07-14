@@ -81,62 +81,40 @@ class DecisionEngine:
         )
 
     def _derive_action(self, score_result: ScoreResult) -> tuple[str, str, str]:
-        """Return action, quality, and risk using score based heuristics."""
+        """Determine the trading action using decision matrix logic."""
 
-        total_score = score_result.total_score
+        trend_ok = score_result.technical_score >= 20
+        momentum_ok = score_result.momentum_score >= 8
+        volume_ok = score_result.volume_score >= 8
+        market_ok = score_result.market_score >= 6
+
         confidence = score_result.confidence
-        technical = score_result.technical_score
-        momentum = score_result.momentum_score
-        volume = score_result.volume_score
-        market = score_result.market_score
 
-        if (
-            total_score >= 85
-            and confidence >= 80.0
-            and technical >= 30
-            and momentum >= 12
-            and volume >= 10
-            and market >= 10
-        ):
-            return "BUY", "A+", self._assess_risk(confidence, market, volume, momentum, technical)
+        risk = self._assess_risk(
+        confidence,
+        score_result.market_score,
+        score_result.volume_score,
+        score_result.momentum_score,
+        score_result.technical_score,
+    )
 
-        if (
-            total_score >= 70
-            and confidence >= 65.0
-            and technical >= 20
-            and momentum >= 8
-            and volume >= 8
-            and market >= 8
-        ):
-            return "BUY", "A", self._assess_risk(confidence, market, volume, momentum, technical)
+        # High conviction BUY
+        if trend_ok and momentum_ok and volume_ok and market_ok and confidence >= 75:
+            return "BUY", "A+", risk
 
-        if (
-            total_score >= 55
-            and confidence >= 50.0
-            and technical >= 15
-            and momentum >= 6
-            and volume >= 6
-            and market >= 6
-        ):
-            return "WATCH", "B", self._assess_risk(confidence, market, volume, momentum, technical)
+        # Good BUY
+        if trend_ok and momentum_ok and market_ok and confidence >= 60:
+            return "BUY", "A", risk
 
-        if (
-            total_score >= 35
-            and confidence >= 35.0
-            and technical >= 8
-            and momentum >= 3
-            and volume >= 3
-            and market >= 4
-        ):
-            return "WATCH", "C", self._assess_risk(confidence, market, volume, momentum, technical)
+        # Watchlist candidate
+        if trend_ok and confidence >= 45:
+            return "WATCH", "B", risk
 
-        if total_score <= 25 and confidence >= 60.0 and (technical <= 5 or momentum <= 2 or volume <= 2):
-            return "SELL", "REJECT", "HIGH"
+        # Weak watch
+        if confidence >= 35:
+            return "WATCH", "C", risk
 
-        if total_score <= 40 and confidence <= 35.0:
-            return "NO_TRADE", "REJECT", "HIGH"
-
-        return "NO_TRADE", "REJECT", self._assess_risk(confidence, market, volume, momentum, technical)
+        return "NO_TRADE", "REJECT", risk
 
     def _assess_risk(
         self,
@@ -209,6 +187,9 @@ class DecisionEngine:
         """Generate entry, stop-loss and target using live price and ATR."""
 
         if score_result.current_price is None:
+            return None, None, None, None
+        
+        if action == "NO_TRADE":
             return None, None, None, None
         
         entry_price = round(score_result.current_price, 2)
