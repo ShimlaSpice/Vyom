@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from app.news.models import NewsItem
 
 
 @dataclass(slots=True)
@@ -32,7 +33,7 @@ class ResearchReport:
     positive_points: list[str] = field(default_factory=list)
     negative_points: list[str] = field(default_factory=list)
 
-    news: list[str] = field(default_factory=list)
+    news: list[NewsItem] = field(default_factory=list)
 
     ai_summary: str = ""
     

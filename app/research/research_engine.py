@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.news.news_engine import NewsEngine
 from app.research.models import ResearchReport
 
 
@@ -14,15 +15,19 @@ class ResearchEngine:
     AI Analyst
     Validation
     Alerts
-
-    Nobody talks directly to Yahoo Finance or News APIs.
-    Everything goes through ResearchEngine.
     """
+
+    def __init__(self) -> None:
+        self.news_engine = NewsEngine()
 
     def build_report(
         self,
         recommendation,
     ) -> ResearchReport:
+
+        news = self.news_engine.get_news(
+            recommendation.symbol,
+        )
 
         report = ResearchReport(
             symbol=recommendation.symbol,
@@ -54,6 +59,8 @@ class ResearchEngine:
             positive_points=recommendation.positive_signals,
 
             negative_points=recommendation.negative_signals,
+
+            news=news,
 
             ai_summary=recommendation.summary,
         )
