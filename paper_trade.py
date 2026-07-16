@@ -4,7 +4,8 @@ from app.scanner.decision_engine import DecisionEngine
 from app.scanner.technical_indicators import TechnicalIndicatorEngine
 from app.scanner.candidate_builder import build_candidate
 from data.nifty50 import NIFTY50
-
+from app.scanner.formatter import ScannerFormatter
+from app.scanner.ranking import RankingEngine
 
 SYMBOLS = NIFTY50
 
@@ -12,6 +13,9 @@ provider = MarketDataProvider()
 indicator_engine = TechnicalIndicatorEngine()
 scoring_engine = ScoringEngine()
 decision_engine = DecisionEngine()
+formatter = ScannerFormatter()
+
+recommendations = []
 
 successful = 0
 failed = 0
@@ -48,13 +52,7 @@ for symbol in SYMBOLS:
 
         recommendation = decision_engine.make_recommendation(score_result)
 
-        print("=" * 60)
-        print(f"Symbol      : {recommendation.symbol}")
-        print(f"Action      : {recommendation.action}")
-        print(f"Confidence  : {recommendation.confidence:.2f}%")
-        print(f"Risk        : {recommendation.risk_level}")
-        print(f"Quality     : {recommendation.trade_quality}")
-        print("=" * 60)
+        recommendations.append(recommendation)
     
         successful += 1
     
@@ -62,6 +60,14 @@ for symbol in SYMBOLS:
         print(f"❌ {symbol}: {e}")
         failed += 1
         continue
+
+
+ranking_engine = RankingEngine()
+
+ranked_recommendations = ranking_engine.rank(recommendations)
+
+print()
+print(formatter.format(ranked_recommendations))
 
 print("\n" + "=" * 70)
 print("SCAN COMPLETE")

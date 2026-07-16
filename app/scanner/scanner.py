@@ -77,6 +77,7 @@ class ScannerEngine:
         scoring_engine: Optional[ScoringEngine] = None,
         filter_engine: Optional[FilterEngine] = None,
         ranking_engine: Optional[RankingEngine] = None,
+        decision_engine: Optional[DecisionEngine] = None,
         market_data_provider: Optional[MarketDataProvider] = None,
         logger_instance: Optional[logging.Logger] = None,
     ) -> None:
@@ -89,13 +90,18 @@ class ScannerEngine:
         """
 
         self.scoring_engine = scoring_engine or ScoringEngine()
-        self.decision_engine = DecisionEngine()
         self.filter_engine = filter_engine or FilterEngine()
         self.ranking_engine = ranking_engine or RankingEngine()
+        self.decision_engine = decision_engine or DecisionEngine()
         self.market_data_provider = market_data_provider or MarketDataProvider()
         self.logger = logger_instance or logger
 
-    def scan(self, limit: int = 10, universe: Optional[Sequence[Mapping[str, Any]]] = None) -> list[dict[str, Any]]:
+    def scan(
+        self,
+        limit: int = 10,
+        universe: Optional[Sequence[Mapping[str, Any]]] = None,
+        action: str | None = None,
+    ) -> list[TradeRecommendation]:
         """Scan a universe of stocks and return ranked results.
 
         Args:
@@ -127,6 +133,15 @@ class ScannerEngine:
             recommendations.append(recommendation)
 
         ranked_results = self.ranking_engine.rank(recommendations)
+
+        if action is not None:
+            action = action.upper()
+
+            ranked_results = [
+                recommendation
+                for recommendation in ranked_results
+                if recommendation.action == action
+            ]
 
         self.logger.info(
             "Scanner produced %d ranked recommendations",
