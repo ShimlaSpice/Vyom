@@ -27,15 +27,28 @@ class TradeRecommendation:
     trade_quality: str
     confidence: float
     risk_level: str
+    
     entry_price: Optional[float]
     stop_loss: Optional[float]
     target_price: Optional[float]
     risk_reward_ratio: Optional[float]
+    
+    total_score: int = 0
+    technical_score: int = 0
+    momentum_score: int = 0
+    volume_score: int = 0
+    market_score: int = 0
+    news_score: int = 0
+    
     positive_signals: list[str] = field(default_factory=list)
     negative_signals: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    
     summary: str = ""
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    
+    timestamp: datetime = field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
 
 
 class DecisionEngine:
@@ -54,7 +67,12 @@ class DecisionEngine:
 
         action, trade_quality, risk_level = self._derive_action(score_result)
         positive_signals, negative_signals, warnings = self._build_signals(score_result, action, risk_level)
-        entry_price, stop_loss, target_price, risk_reward_ratio = self._build_price_targets(action,  score_result,)
+        entry_price, stop_loss, target_price, risk_reward_ratio = (
+            self._build_price_targets(
+                action,
+                score_result,
+                )
+        )
         summary = self._build_summary(score_result, action, trade_quality)
 
         self.logger.debug(
@@ -64,21 +82,34 @@ class DecisionEngine:
             trade_quality,
         )
 
+        print("DEBUG: Using total_score field")
+
         return TradeRecommendation(
             symbol=score_result.symbol,
             action=action,
-            trade_quality=trade_quality,
+            # Overall ranking score
+            total_score=score_result.total_score,
             confidence=round(self._calculate_confidence(score_result), 2),
+            # Individual score components
+            technical_score=score_result.technical_score,
+            momentum_score=score_result.momentum_score,
+            volume_score=score_result.volume_score,
+            market_score=score_result.market_score,
+            news_score=score_result.news_score,
+
+            trade_quality=trade_quality,
             risk_level=risk_level,
+
             entry_price=entry_price,
             stop_loss=stop_loss,
             target_price=target_price,
             risk_reward_ratio=risk_reward_ratio,
+
             positive_signals=positive_signals,
             negative_signals=negative_signals,
             warnings=warnings,
             summary=summary,
-        )
+            )
 
     def _derive_action(self, score_result: ScoreResult) -> tuple[str, str, str]:
         """Determine the trading action using decision matrix logic."""
@@ -91,12 +122,12 @@ class DecisionEngine:
         confidence = score_result.confidence
 
         risk = self._assess_risk(
-        confidence,
-        score_result.market_score,
-        score_result.volume_score,
-        score_result.momentum_score,
-        score_result.technical_score,
-    )
+            confidence,
+            score_result.market_score,
+            score_result.volume_score,
+            score_result.momentum_score,
+            score_result.technical_score,
+        )
 
         # High conviction BUY
         if trend_ok and momentum_ok and volume_ok and market_ok and confidence >= 75:

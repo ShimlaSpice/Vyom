@@ -13,7 +13,9 @@ from typing import Any, Mapping, Optional, Sequence
 from app.market.market_data_provider import MarketDataProvider
 from app.scanner.filters import FilterEngine
 from app.scanner.scoring import ScoringEngine
+from app.scanner.ranking import RankingEngine
 from app.scanner.decision_engine import DecisionEngine
+from app.scanner.decision_engine import TradeRecommendation
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +76,7 @@ class ScannerEngine:
         self,
         scoring_engine: Optional[ScoringEngine] = None,
         filter_engine: Optional[FilterEngine] = None,
+        ranking_engine: Optional[RankingEngine] = None,
         market_data_provider: Optional[MarketDataProvider] = None,
         logger_instance: Optional[logging.Logger] = None,
     ) -> None:
@@ -88,6 +91,7 @@ class ScannerEngine:
         self.scoring_engine = scoring_engine or ScoringEngine()
         self.decision_engine = DecisionEngine()
         self.filter_engine = filter_engine or FilterEngine()
+        self.ranking_engine = ranking_engine or RankingEngine()
         self.market_data_provider = market_data_provider or MarketDataProvider()
         self.logger = logger_instance or logger
 
@@ -111,28 +115,25 @@ class ScannerEngine:
         self.logger.info("Scanning %d candidates", len(candidates))
         candidate_payloads = [candidate.to_mapping() for candidate in candidates]
         filtered_candidates = self.filter_engine.filter_candidates(candidate_payloads)
-        scored_results: list[dict[str, Any]] = []
+        recommendations: list[TradeRecommendation] = []
 
         for candidate in filtered_candidates:
-            score = self.scoring_engine.score_candidate(candidate)
-            reasons = self._build_reasons(candidate, score)
-            scored_results.append(
-                {
-                    "symbol": candidate["symbol"],
-                    "name": candidate.get("name", candidate["symbol"]),
-                    "sector": candidate.get("sector", "Unknown"),
-                    "score": score,
-                    "price": candidate.get("price"),
-                    "momentum": candidate.get("momentum"),
-                    "volume": candidate.get("volume"),
-                    "quality": candidate.get("quality"),
-                    "reasons": reasons,
-                }
-            )
+            score_result = self.scoring_engine.score_stock(candidate)
 
-        scored_results.sort(key=lambda item: item["score"], reverse=True)
-        self.logger.info("Scanner produced %d ranked results", len(scored_results))
-        return scored_results[:limit]
+            recommendation = self.decision_engine.make_recommendation(
+                score_result
+        )
+
+            recommendations.append(recommendation)
+
+        ranked_results = self.ranking_engine.rank(recommendations)
+
+        self.logger.info(
+            "Scanner produced %d ranked recommendations",
+            len(ranked_results),
+        )
+
+        return ranked_results[:limit]
 
     def build_candidates(self, universe: Optional[Sequence[Mapping[str, Any]] | Sequence[str]] = None) -> list[StockData]:
         """Build a list of StockData candidates from live market data or explicit input."""
