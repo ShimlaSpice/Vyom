@@ -9,7 +9,7 @@ from config import ConfigManager, Settings
 from core.cache import CacheManager
 from core.database import DatabaseManager
 from core.logger import LoggerManager
-from core.scheduler import SchedulerManager
+from core.scheduler import SchedulerManager     
 from market.service import MarketService
 from news.service import NewsService
 

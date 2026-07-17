@@ -15,8 +15,8 @@ from core.container import ApplicationContainer
 from core.database import DatabaseManager
 from core.logger import LoggerManager
 from core.scheduler import SchedulerManager
-from market.service import MarketService
-from news.service import NewsService
+from app.market.service import MarketService
+from app.news.service import NewsService
 from ui.main_window import MainWindow
 
 

@@ -1,8 +1,3 @@
-"""User interface package for VYOM Trader AI."""
+"""VYOM UI Package."""
 
-# UI code remains separated from the domain and data layers so the desktop
-# surface can evolve without tangling business logic.
-
-from ui.main_window import MainWindow
-
-__all__ = ["MainWindow"]
+from __future__ import annotations

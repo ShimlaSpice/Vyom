@@ -7,7 +7,7 @@ from pathlib import Path
 
 from config import ConfigManager
 from core.database import DatabaseManager
-from market.service import MarketService
+from app.market.service import MarketService
 
 
 def _write_settings(tmp_path: Path) -> Path:
